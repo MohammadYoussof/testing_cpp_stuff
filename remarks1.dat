@@ -1,0 +1,178 @@
+Sure, here's a detailed guide for where to add the modifications for CLAHE in each segment of the OG code:
+
+Segment 1:
+You will need to include the following header files at the beginning of the segment:
+
+#include <cmath>
+#include <vector>
+
+Segment 2:
+You will need to create a new function for CLAHE in this segment. Here's an example implementation:
+
+void clahe(unsigned char *image, int width, int height, int bpp, float clipLimit, int tileWidth, int tileHeight) {
+    // Calculate the size of each tile
+    int tilesX = ceil(width / tileWidth);
+    int tilesY = ceil(height / tileHeight);
+    int tileCount = tilesX * tilesY;
+
+    // Calculate the clip limit value
+    int pixelCount = tileWidth * tileHeight * bpp;
+    int clipLimitValue = ceil(clipLimit * pixelCount / tileCount);
+
+    // Create the cumulative distribution function (CDF) for each tile
+    std::vector<int> cdf(256, 0);
+    std::vector<int> tileHistogram(256, 0);
+    std::vector<int> clippedHistogram(256, 0);
+    for (int tileY = 0; tileY < tilesY; tileY++) {
+        for (int tileX = 0; tileX < tilesX; tileX++) {
+            // Calculate the bounds of the current tile
+            int tileLeft = tileX * tileWidth;
+            int tileRight = std::min((tileX + 1) * tileWidth, width);
+            int tileTop = tileY * tileHeight;
+            int tileBottom = std::min((tileY + 1) * tileHeight, height);
+
+            // Calculate the histogram for the current tile
+            for (int y = tileTop; y < tileBottom; y++) {
+                for (int x = tileLeft; x < tileRight; x++) {
+                    for (int i = 0; i < bpp; i++) {
+                        int pixelValue = image[(y * width + x) * bpp + i];
+                        tileHistogram[pixelValue]++;
+                    }
+                }
+            }
+
+            // Clip the histogram if necessary
+            int clipCount = 0;
+            for (int i = 0; i < 256; i++) {
+                if (tileHistogram[i] > clipLimitValue) {
+                    clippedHistogram[i] = clipLimitValue;
+                    clipCount += tileHistogram[i] - clipLimitValue;
+                } else {
+                    clippedHistogram[i] = tileHistogram[i];
+                }
+            }
+
+            // Redistribute the clipped pixels evenly
+            if (clipCount > 0) {
+                int redistCount = clipCount / 256;
+                int residual = clipCount % 256;
+                for (int i = 0; i < 256; i++) {
+                    clippedHistogram[i] += redistCount;
+                }
+                clippedHistogram[0] += residual;
+            }
+
+            // Create the CDF for the current tile
+            int sum = 0;
+            for (int i = 0; i < 256; i++) {
+                sum += clippedHistogram[i];
+                cdf[i] += sum;
+            }
+
+            // Reset the histograms for the next tile
+            tileHistogram.assign(256, 0);
+            clippedHistogram.assign(256, 0);
+        }
+    }
+
+
+
+
+
+    // Apply the CLAHE transformation to the image 
+
+for (int y = 0; y < height; y++) { 
+for (int x = 0; x < width; x++) { 
+
+// Get the histogram of the surrounding block 
+int histogram[256] = {0}; 
+for (int i = -block_size; i <= block_size; i++) { 
+for (int j = -block_size; j <= block_size; j++) { 
+int px = x + i; 
+int py = y + j; 
+if (px < 0 || px >= width || py < 0 || py >= height) { 
+continue; 
+} 
+histogram[image[py*width+px]]++; 
+} 
+}
+
+    // Calculate the CLAHE transformation for the pixel
+    int sum = 0;
+    for (int i = 0; i < 256; i++) {
+        sum += histogram[i];
+    }
+    float lut[256] = {0};
+    int clip_limit = block_size*block_size*clip_limit_ratio;
+    int excess = 0;
+    int redist = 0;
+    for (int i = 0; i < 256; i++) {
+        if (histogram[i] > clip_limit) {
+            excess += histogram[i] - clip_limit;
+            histogram[i] = clip_limit;
+        }
+        lut[i] = excess/(float)(256-clip_limit);
+        redist += histogram[i] - clip_limit;
+    }
+    redist /= 256-clip_limit;
+    for (int i = 0; i < 256; i++) {
+        lut[i] += redist/(float)clip_limit;
+        if (i > 0) {
+            lut[i] += lut[i-1];
+        }
+    }
+    
+    // Apply the CLAHE transformation to the pixel
+    int pixel_value = image[y*width+x];
+    int new_pixel_value = lut[pixel_value]*255;
+    new_pixel_value = (new_pixel_value > 255) ? 255 : new_pixel_value;
+    image[y*width+x] = new_pixel_value;
+}
+}
+
+//////////////////////////
+///////////////
+///////////////
+In the code above, we've added the implementation of CLAHE transformation to the image processing pipeline. Here's how to integrate this code into the original code in each of the six segments:
+
+const float clip_limit_ratio = 0.01;
+
+Segment 2:
+Add the following definition of block_size:
+
+const int block_size = 16;
+
+
+Segment 3:
+Replace the definition of image with the following:
+
+unsigned char *image = new unsigned char[width*height];
+
+
+Segment 4:
+Add the following code right after the initialization of width and height:
+
+
+unsigned char *output_image = new unsigned char[width*height];
+
+Segment 5:
+Add the following code inside the process_image function, right after the loop that reads in the image data:
+// Apply the CLAHE transformation to the input image
+apply_clahe(image, output_image, width, height);
+
+// Swap the input and output image pointers
+std::swap(image, output_image);
+
+Segment 6:
+Replace the code that writes out the processed image with the following:
+
+// Write the output image to a file
+write_image(output_image, output_filename, width, height);
+
+This last step for segment 6 is to save the modified image to disk using the following code: you can also use the following 
+// Save the modified image to disk
+cv::imwrite("modified_image.jpg", modified_image);
+
+but this will save the modified image as a JPEG file with the name "modified_image.jpg" in the same directory as the executable file. But what looks also correct assuming that write_image (as above) is a function that takes the output image data as well as the filename and dimensions as input arguments, and writes the image to the file using the specified file format.
+
+
